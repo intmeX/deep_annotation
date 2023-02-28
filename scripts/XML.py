@@ -1,7 +1,20 @@
+import os
+import re
+# import copy
 from lxml import html
-from xml.parsers.expat import ParserCreate
-
 etree = html.etree
+
+
+def path_list(path):
+    l = len(path)
+    while path[l - 1] != '/':
+        l -= 1
+    p = re.compile(path[l:])
+    res = []
+    for f in os.listdir(path[:l]):
+        if p.match(f):
+            res.append(path[:l] + f)
+    return res
 
 
 def etree2dict(c):
@@ -37,8 +50,16 @@ def dict2etree(c, k):
 
 
 def read_xml(path):
-    c = etree.parse(path).getroot()
-    return {'problems': etree2dict(c)}
+    res = {}
+    for i in path_list(path):
+        tree = etree.parse(i).getroot()
+        dic = etree2dict(tree)
+        if len(res) == 0:
+            res = dic
+        else:
+            for j in res:
+                res[j].extend(dic[j])
+    return res
 
 
 def write_xml(path, c):
@@ -48,7 +69,8 @@ def write_xml(path, c):
 
 
 if __name__ == '__main__':
-    # write_xml("./1.xml", {'pro': [{'a': 1, 'b': 2}, {'a': 6, 'b': 2}]})
-    print(read_xml('./1.xml'))
+    write_xml("./1.xml", {'pro': [{'a': 1, 'b': 2}, {'a': 6, 'b': 2}]})
+    write_xml("./2.xml", {'pro': [{'a': 2, 'b': 3}, {'a': 7, 'b': 3}]})
+    print(read_xml(r'./\d+\.xml'))
 
 

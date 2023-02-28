@@ -1,98 +1,20 @@
+import os
 import re
 import requests
 from bs4 import BeautifulSoup
 from scripts import XML
-
-
-oj_name = [
-    "codeforces",
-    "poj",
-    "hdu",
-]
-prefix = {
-    "codeforces": "https://codeforces.ml/problemset/page/",
-    "poj": "http://poj.org/problemlist?volume=",
-    "hdu": "http://acm.hdu.edu.cn/listproblem.php?vol=",
-}
-page = [
-    84,
-    31,
-    0,
-]
-uapos = 0
-agents = [
-    "Mozilla/5.0 (Linux; U; Android 2.3.6; en-us; Nexus S Build/GRK39F) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Avant Browser/1.2.789rel1 (http://www.avantbrowser.com)",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/532.5 (KHTML, like Gecko) Chrome/4.0.249.0 Safari/532.5",
-    "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US) AppleWebKit/532.9 (KHTML, like Gecko) Chrome/5.0.310.0 Safari/532.9",
-    "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/534.7 (KHTML, like Gecko) Chrome/7.0.514.0 Safari/534.7",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.0; en-US) AppleWebKit/534.14 (KHTML, like Gecko) Chrome/9.0.601.0 Safari/534.14",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/534.14 (KHTML, like Gecko) Chrome/10.0.601.0 Safari/534.14",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/534.20 (KHTML, like Gecko) Chrome/11.0.672.2 Safari/534.20",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/534.27 (KHTML, like Gecko) Chrome/12.0.712.0 Safari/534.27",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.24 Safari/535.1",
-    "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.874.120 Safari/535.2",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.0 x64; en-US; rv:1.9pre) Gecko/2008072421 Minefield/3.0.2pre",
-    "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.10) Gecko/2009042316 Firefox/3.0.10",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.0; en-GB; rv:1.9.0.11) Gecko/2009060215 Firefox/3.0.11 (.NET CLR 3.5.30729)",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.0; en-US; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 GTB5",
-    "Mozilla/5.0 (Windows; U; Windows NT 5.1; tr; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8 ( .NET CLR 3.5.30729; .NET4.0E)",
-    "Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
-    "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
-    "Mozilla/5.0 (Windows NT 5.1; rv:5.0) Gecko/20100101 Firefox/5.0",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:6.0a2) Gecko/20110622 Firefox/6.0a2",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:2.0b4pre) Gecko/20100815 Minefield/4.0b4pre",
-    "Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0 )",
-    "Mozilla/4.0 (compatible; MSIE 5.5; Windows 98; Win 9x 4.90)",
-    "Mozilla/5.0 (Windows; U; Windows XP) Gecko MultiZilla/1.6.1.0a",
-    "Mozilla/2.02E (Win95; U)",
-    "Mozilla/3.01Gold (Win95; I)",
-    "Mozilla/4.8 [en] (Windows NT 5.1; U)",
-    "Mozilla/5.0 (Windows; U; Win98; en-US; rv:1.4) Gecko Netscape/7.1 (ax)",
-    "HTC_Dream Mozilla/5.0 (Linux; U; Android 1.5; en-ca; Build/CUPCAKE) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (hp-tablet; Linux; hpwOS/3.0.2; U; de-DE) AppleWebKit/534.6 (KHTML, like Gecko) wOSBrowser/234.40.1 Safari/534.6 TouchPad/1.0",
-    "Mozilla/5.0 (Linux; U; Android 1.5; en-us; sdk Build/CUPCAKE) AppleWebkit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 2.1; en-us; Nexus One Build/ERD62) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 1.5; en-us; htc_bahamas Build/CRB17) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 2.1-update1; de-de; HTC Desire 1.19.161.5 Build/ERE27) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Sprint APA9292KT Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 1.5; de-ch; HTC Hero Build/CUPCAKE) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; ADR6300 Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 2.1; en-us; HTC Legend Build/cupcake) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 1.5; de-de; HTC Magic Build/PLAT-RC33) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1 FirePHP/0.3",
-    "Mozilla/5.0 (Linux; U; Android 1.6; en-us; HTC_TATTOO_A3288 Build/DRC79) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 1.0; en-us; dream) AppleWebKit/525.10  (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2",
-    "Mozilla/5.0 (Linux; U; Android 1.5; en-us; T-Mobile G1 Build/CRB43) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari 525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 1.5; en-gb; T-Mobile_G2_Touch Build/CUPCAKE) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 2.0; en-us; Droid Build/ESD20) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/FRG22D) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 2.0; en-us; Milestone Build/ SHOLS_U2_01.03.1) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.0.1; de-de; Milestone Build/SHOLS_U2_01.14.0) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 3.0; en-us; Xoom Build/HRI39) AppleWebKit/525.10  (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2",
-    "Mozilla/5.0 (Linux; U; Android 0.5; en-us) AppleWebKit/522  (KHTML, like Gecko) Safari/419.3",
-    "Mozilla/5.0 (Linux; U; Android 1.1; en-gb; dream) AppleWebKit/525.10  (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2",
-    "Mozilla/5.0 (Linux; U; Android 2.0; en-us; Droid Build/ESD20) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.1; en-us; Nexus One Build/ERD62) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Sprint APA9292KT Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; ADR6300 Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 2.2; en-ca; GT-P1000M Build/FROYO) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-    "Mozilla/5.0 (Linux; U; Android 3.0.1; fr-fr; A500 Build/HRI66) AppleWebKit/534.13 (KHTML, like Gecko) Version/4.0 Safari/534.13",
-    "Mozilla/5.0 (Linux; U; Android 3.0; en-us; Xoom Build/HRI39) AppleWebKit/525.10  (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2",
-    "Mozilla/5.0 (Linux; U; Android 1.6; es-es; SonyEricssonX10i Build/R1FA016) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-    "Mozilla/5.0 (Linux; U; Android 1.6; en-us; SonyEricssonX10i Build/R1AA056) AppleWebKit/528.5  (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1",
-]
+from scripts import config
 
 
 def get_im(oj, page=0):
-    global uapos
-    header = {"User-Agent": agents[uapos]}
-    url = prefix[oj] + str(page)
-    responses = requests.get(url=url, headers=header)
-    uapos = (uapos + 1) % 60
+    header = {"User-Agent": config.get_ua()}
+    url = config.prefix[oj] + str(page)
+    try:
+        responses = requests.get(url=url, timeout=10, headers=header)
+    except requests.RequestException:
+        return False
     soup = BeautifulSoup(responses.text, "lxml")
+    BeautifulSoup.contains_replacement_characters = True
     problems = {'problem': []}
     if oj == 'codeforces':
         tr = soup.find_all("tr")
@@ -103,8 +25,9 @@ def get_im(oj, page=0):
                 continue
             if co == len(tr):
                 break
-            aa = {}
-            aa["ID"] = i.contents[1].text.strip()
+            aa = dict()
+            num = i.contents[1].text.strip()
+            aa["ID"] = 'CF' + num
             info = re.sub("\n+", "\n", i.contents[3].text.strip()).split("\n")
             aa["problem"] = info[0].replace("'", "-").strip()
             aa["label"] = "".join(info[1:])
@@ -113,34 +36,70 @@ def get_im(oj, page=0):
             aa["difficulty"] = i.contents[7].text.strip()
             aa["accept"] = i.contents[9].text.strip().strip()[1:]
             cut = 0
-            for j in range(len(aa["ID"])):
-                if aa["ID"][j].isalpha():
+            for j in range(len(num)):
+                if num[j].isalpha():
                     cut = j
-            aa["address"] = "https://codeforces.ml/problemset/problem/" + aa["ID"][:cut] + "/" + aa["ID"][cut:]
+            aa["address"] = "https://codeforces.ml/problemset/problem/" + num[:cut] + "/" + num[cut:]
             aa['oj'] = oj
             print(aa)
-            print("Successfully insert one lines data into the table! ID: {}, UAPOS:{}".format(aa['ID'], uapos))
+            print("Successfully insert one lines data into the table! ID: {}, UAPOS:{}".format(aa['ID'], config.get_ua_pos()))
             problems['problem'].append(aa)
     elif oj == 'poj':
         tr = soup.find_all("tr", align="center")
         for i in tr:
-            aa = {}
-            aa["ID"] = i.contents[0].text.strip()
+            aa = dict()
+            aa["ID"] = 'POJ' + i.contents[0].text.strip()
             aa["problem"] = i.contents[1].text.replace("\"", "_").replace("\\", "_").replace("'", "-").strip()
             aa["accept"] = i.contents[2].contents[1].text
             aa["submit"] = i.contents[2].contents[3].text
-            aa["address"] = "http://poj.org/problem?id=" + aa["ID"]
+            aa["address"] = "http://poj.org/problem?id=" + i.contents[0].text.strip()
             aa['oj'] = oj
             print(aa)
-            print("Successfully insert one lines data into the table! ID: {}, UAPOS:{}".format(aa['ID'], uapos))
+            print("Successfully insert one lines data into the table! ID: {}, UAPOS:{}".format(aa['ID'], config.get_ua_pos()))
+            problems['problem'].append(aa)
+    elif oj == 'hdu':
+        tr = soup.find("table", class_="table_text")
+        local_text = tr.contents[1].text
+        for i in local_text.split(");"):
+            if i == "" or i == " ":
+                break
+            cc = []
+            aa = dict()
+            if i[0] == "P":
+                continue
+                # cc = i.split(")p(")[1][: -1].split(",")
+            else:
+                cc = i[2:].split(",")
+            aa["ID"] = 'HDU' + cc[1]
+            if len(cc) >= 7:
+                aa["problem"] = ("".join(cc[3: len(cc) - 2])).strip().replace("'", "-")
+                aa["accept"] = cc[len(cc) - 2]
+                aa["submit"] = cc[len(cc) - 1]
+            else:
+                aa["problem"] = cc[3].strip().replace("'", "-")
+                aa["accept"] = cc[4]
+                aa["submit"] = cc[5]
+            aa["problem"] = aa["problem"][1: -1].replace("\"", "_").replace("\\", "_").strip()
+            aa["address"] = "http://acm.hdu.edu.cn/showproblem.php?pid=" + cc[1]
+            aa['oj'] = oj
+            print(aa)
+            print("Successfully insert one lines data into the table! ID: {}, UAPOS:{}".format(aa['ID'], config.get_ua_pos()))
             problems['problem'].append(aa)
     else:
         raise Exception("No such OJ \'" + oj + "\'")
-
-    XML.write_xml('../data/base/problem_lists/' + oj + '_' + str(page) + '.xml', problems)
+    if len(problems['problem']) == 0:
+        return False
+    if not os.path.exists(config.problem_list_path):
+        os.makedirs(config.problem_list_path)
+    XML.write_xml(config.problem_list_path + oj + '_' + str(page) + '.xml', problems)
+    print('\nsave the file ' + config.problem_list_path + oj + '_' + str(page) + '.xml\n')
+    return True
 
 
 if __name__ == '__main__':
-    for k in range(2):
-        for i in range(1, 2):# page[k] + 1):
-            get_im(oj_name[k], i)
+    for k in range(0, 3):
+        i = 1
+        while i <= config.page[k]:
+            if not get_im(config.oj_name[k], i):
+                i -= 1
+            i += 1
