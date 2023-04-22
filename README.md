@@ -14,4 +14,4 @@
   - 结果可视化
  
 ### 主要模块
-![](https://cdn.luogu.com.cn/upload/image_hosting/mrhca1l9.png)
+![](https://s2.loli.net/2023/04/22/eRbnBD3fzMroXWc.png)
