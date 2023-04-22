@@ -1,19 +1,12 @@
 import os
 import re
 import copy
-import random
-import urllib
-import urllib.request
+import html
 import hashlib
 import requests
-import pandas as pd
 from bs4 import BeautifulSoup
 from scripts import XML
 from scripts import config
-
-
-def text_localize(s):
-    pass
 
 
 def SavingText(set_name, ID, name, text_str):
@@ -184,6 +177,8 @@ def Gather(p):
         soup = soup.find('div', class_='problem-statement')
         if not soup:
             return None
+        if len(soup.contents) < 5:
+            return None
         images = soup.find_all("img")
         if len(images) > 0:
             return None
@@ -191,8 +186,20 @@ def Gather(p):
         p['input_stmt'] = soup.contents[2].text.strip()
         p['output_stmt'] = soup.contents[3].text.strip()
         p['sample'] = soup.contents[4].text.strip()
-        p['note'] = soup.contents[5].text.strip()
+        if len(soup.contents) >= 6:
+            p['note'] = soup.contents[5].text.strip()
+    p['stmt'] = html.unescape(p['stmt'])
+    p['input_stmt'] = html.unescape(p['input_stmt'])
+    p['output_stmt'] = html.unescape(p['output_stmt'])
+    p['sample'] = html.unescape(p['sample'].replace('\r\n', '\n'))
+    p['note'] = html.unescape(p['note'])
     return p
+
+
+def save(problems):
+    if not os.path.exists(config.base_path):
+        os.mkdir(config.base_path)
+    XML.write_xml(config.base_path + 'problems.xml', problems, entity_name='problem')
 
 
 if __name__ == "__main__":
@@ -202,22 +209,26 @@ if __name__ == "__main__":
     # print(str(pro_list)[:2000])
     # continue
     # fl = True
+    total = 0
+    exception = None
     for i in pro_list['problem']:
         # if i["ID"] == "999E":
         #     break
         # if k == "codeforces" and fl:# or (i["ID"] >= 2783 and k == "poj") or (i["ID"] >= 1924 and k == "hdu")
         # Gather(k, i["ID"], i["problem"], i["address"].replace("ml", "com"))
-        if i['oj'] != 'poj':
-            continue
-        res = Gather(i)
+        # if i['oj'] != 'poj':
+        #     continue
+        try:
+            res = Gather(i)
+        except Exception as e:
+            save(problems)
+            raise e
         if res:
             problems['problem'].append(res)
-        if len(problems['problem']) > 100:
-            break
+            total += 1
+            print('Successfully get the problem content. ID:{} total:{}'.format(res['ID'], total))
 
-    if not os.path.exists(config.base_path):
-        os.mkdir(config.base_path)
-    XML.write_xml(config.base_path + 'problems.xml', problems)
+    save(problems)
     # print("These are short errors list:")
     # for i in short_errors:
     #     print(i)

@@ -62,15 +62,16 @@ def read_xml(path):
     return res
 
 
-def write_xml(path, c):
-    root = etree.ElementTree(dict2etree(c, 'problems'))
+def write_xml(path, c, entity_name):
+    root = etree.ElementTree(dict2etree(c, entity_name + 's'))
     # dict2etree(c, 'problems').write(path, pretty_print=True)
     root.write(path, pretty_print=True)
 
 
 if __name__ == '__main__':
-    write_xml("./1.xml", {'pro': [{'a': 1, 'b': 2}, {'a': 6, 'b': 2}]})
-    write_xml("./2.xml", {'pro': [{'a': 2, 'b': 3}, {'a': 7, 'b': 3}]})
-    print(read_xml(r'./\d+\.xml'))
+    # write_xml("./1.xml", {'pro': [{'a': 1, 'b': 2}, {'a': 6, 'b': 2}]})
+    # write_xml("./2.xml", {'pro': [{'a': 2, 'b': 3}, {'a': 7, 'b': 3}]})
+    # print(read_xml(r'./\d+\.xml'))
+    print(len(read_xml('../data/base/problems_with_tag50.xml')['problem']))
 
 

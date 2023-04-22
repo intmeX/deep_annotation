@@ -1,5 +1,6 @@
 problem_list_path = '../data/base/problem_lists/'
 base_path = '../data/base/'
+model_path = '../data/models/'
 oj_name = [
     "codeforces",
     "poj",

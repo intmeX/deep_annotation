@@ -91,7 +91,7 @@ def get_im(oj, page=0):
         return False
     if not os.path.exists(config.problem_list_path):
         os.makedirs(config.problem_list_path)
-    XML.write_xml(config.problem_list_path + oj + '_' + str(page) + '.xml', problems)
+    XML.write_xml(config.problem_list_path + oj + '_' + str(page) + '.xml', problems, entity_name='problem')
     print('\nsave the file ' + config.problem_list_path + oj + '_' + str(page) + '.xml\n')
     return True
 
