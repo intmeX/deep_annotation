@@ -1,0 +1,19 @@
+problem_list_path = '../data/base/problem_lists/'
+base_path = '../data/base/'
+model_data_path = '../data/models/'
+results_path = '../results/'
+data_path = '../data/base/problems_with_tag50.xml'
+feature = 'text'
+label = 'tag'
+
+model_name = 'lstm'
+model_path = 'cpc_lstm.model'
+max_length = 200
+epoch = 100
+batch_size = 20
+vocab_len = 3000000
+vec_dim = 300
+hidden_dim = 20
+num_layers = 3
+num_classes = 50
+learning_rate = 1e-5

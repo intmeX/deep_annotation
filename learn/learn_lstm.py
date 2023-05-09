@@ -8,26 +8,26 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 from gensim.models import KeyedVectors
 from scripts import XML
-from scripts import config
 from model import lstm_ml
+from configs.config import *
 
 
-data_path = '../data/base/problems_with_tag50.xml'
-max_length = 200
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-epoch = 100
-batch_size = 20
-vocab_len = 3000000
-vec_dim = 300
-hidden_dim = 20
-num_layers = 3
-num_classes = 50
+# data_path = '../data/base/problems_with_tag50.xml'
+# max_length = 200
+# epoch = 100
+# batch_size = 20
+# vocab_len = 3000000
+# vec_dim = 300
+# hidden_dim = 20
+# num_layers = 3
+# num_classes = 50
 
 
 # 定义分词器
 tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
-embedding = KeyedVectors.load_word2vec_format(config.model_path + 'GoogleNews-vectors-negative300.bin', binary=True)
-# embedding = torch.load(config.model_path + 'GoogleNews-vectors-negative300.model').to(device)
+embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
+# embedding = torch.load(config.model_data_path + 'GoogleNews-vectors-negative300.model').to(device)
 
 
 # 自定义Dataset子类
@@ -163,7 +163,7 @@ def evaluting(model, dataloader, criterion, thr=0.7):
     return epoch_loss / len(dataloader), epoch_acc_tp / len(dataloader), epoch_acc_tr / len(dataloader)
 
 
-if __name__ == '__main__':
+def main():
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         eval_loss, eval_accp, eval_accr = evaluting(model, validate_loader, loss_func)
         print("\nevaluting epoch {:<1} loss: {}\taccp: {}\taccr: {}\n".format(i + 1, eval_loss, eval_accp, eval_accr))
         # except:
-        #     torch.save(model, config.model_path + 'cpc_lstm.model')
+        #     torch.save(model, config.model_data_path + 'cpc_lstm.model')
         #     break
 
         last_epoch = i + 1
@@ -194,6 +194,10 @@ if __name__ == '__main__':
         times.append(time.time() - start)
 
     if last_epoch == epoch:
-        torch.save(model, config.model_path + 'cpc_lstm.model')
+        torch.save(model, model_data_path + 'cpc_lstm.model')
     print("\ntimecost:", times, "\n")
+
+
+if __name__ == '__main__':
+    main()
 
