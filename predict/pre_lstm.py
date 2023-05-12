@@ -1,11 +1,10 @@
 import numpy as np
+import pandas as pd
 import time
 import torch
 import random
 from transformers import BertTokenizerFast
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW
 from gensim.models import KeyedVectors
 from scripts import XML
 from model import lstm_ml
@@ -44,31 +43,57 @@ def data_trans(data):
     global device
     pad = np.random.normal(loc=0, scale=1, size=(vec_dim,))
     res = dict()
-    res['desc'] = tokenizer.tokenize(data['stmt'])
-    length = len(res['desc'])
+    # stmt 是题目数据文件中的feature
+    res[feature] = tokenizer.tokenize(data[feature])
+    length = len(res[feature])
     if length > max_length:
-        res['desc'] = res['desc'][:max_length]
+        res[feature] = res[feature][:max_length]
         length = max_length
     i = 0
     while i < length:
         try:
-            res['desc'][i] = embedding[res['desc'][i]]
+            res[feature][i] = embedding[res[feature][i]]
         except:
-            res['desc'][i] = pad
+            res[feature][i] = pad
         i += 1
     if length < max_length:
-        res['desc'] += [pad] * (max_length - length)
-    res['desc'] = torch.tensor(np.array(res['desc']), dtype=torch.float32).to(device)
-    res['ID'] = data['ID']
+        res[feature] += [pad] * (max_length - length)
+    res[feature] = torch.tensor(np.array(res[feature]), dtype=torch.float32)
+    tag = [int(j) for j in data[label].split(',')]
+    oh = [0] * num_classes
+    for j in tag:
+        oh[j] = 1
+    res[label] = torch.tensor(oh, dtype=torch.float32)
+    return res
+
+
+def get_data(path):
+    global data_root
+    if path[-3:] == 'xml':
+        res = XML.read_xml(data_root + path)[xml_name]
+    elif path[-3:] == 'csv':
+        dic = pd.read_csv(data_root + path).to_dict('list')
+        res = []
+        length = 0
+        for i in dic:
+            length = len(dic[i])
+            break
+        for j in range(length):
+            item = dict()
+            for i in dic:
+                item[i] = dic[i][j]
+            res.append(item)
+    else:
+        raise Exception('invalid data file format')
     return res
 
 
 def data_prepare():
     global data_path
     global batch_size
-    data_xml = XML.read_xml(data_path)['problem']
+    data_raw = get_data(data_path)
     data = []
-    for i in data_xml:
+    for i in data_raw:
         data.append(data_trans(i))
     random.seed(time.time())
     random.shuffle(data)
@@ -76,7 +101,7 @@ def data_prepare():
     return data_test
 
 
-def test(model, dataloader, thr=0.7):
+def run_test(model, dataloader, thr=0.7):
     global num_classes
     global device
     global batch_size
@@ -84,13 +109,13 @@ def test(model, dataloader, thr=0.7):
     model.eval()
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-            desc = batch["desc"]
+            desc = batch[feature].to(device)
             # label = torch.tensor(batch["label"], dtype=torch.long).to(device)
             ID = batch["ID"]
             prob = model(desc)
             p = prob > thr
-            for j in range(batch_size):
-                idx = ID['ID'][j]
+            for j in range(len(batch['ID'])):
+                idx = ID[j]
                 res[idx] = ""
                 for k in range(num_classes):
                     if p[j][k] == 1:
@@ -104,7 +129,7 @@ def main():
     test_loader = data_prepare()
     print(test_loader.dataset[2])
     # model = lstm_ml.LSTM(None, vocab_len, vec_dim, hidden_dim, num_layers, num_classes=num_classes).to(device)
-    model = torch.load(model_data_path + model_path)
+    model = torch.load(model_data_path + model_path).to(device)
     # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
     # 参考博客 一是去掉无用的设置 而是构造字典列表以使AdamW可以接受该参数
 
@@ -112,18 +137,19 @@ def main():
 
     torch.cuda.synchronize()
     start = time.time()
-    res = test(model, test_loader)
+    res = run_test(model, test_loader)
     end = time.time()
     test_time = end - start
     torch.cuda.synchronize()
-    with open(results_path + str(end) + '.txt', 'w') as f:
+    end = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    with open(results_path + end + '.txt', 'w') as f:
         fstr = ''
         for i in res:
             fstr += i + ' ' + res[i] + '\n'
         f.write(fstr)
 
     print("\ntimecost:", test_time, "\n")
-    print("\nthe result has been saved in " + str(end) + '.txt\n')
+    print("\nthe result has been saved in " + end + '.txt\n')
 
 
 if __name__ == '__main__':

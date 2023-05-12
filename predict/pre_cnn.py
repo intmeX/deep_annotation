@@ -163,7 +163,7 @@ def evaluting(model, dataloader, criterion, thr=0.7):
     return epoch_loss / len(dataloader), epoch_acc_tp / len(dataloader), epoch_acc_tr / len(dataloader)
 
 
-if __name__ == '__main__':
+def main():
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
@@ -196,3 +196,8 @@ if __name__ == '__main__':
     if last_epoch == epoch:
         torch.save(model, config.model_data_path + 'cpc_cnn.model')
     print("\ntimecost:", times, "\n")
+
+
+
+if __name__ == '__main__':
+    main()
