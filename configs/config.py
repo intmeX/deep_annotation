@@ -20,6 +20,7 @@ learning_rate = 1e-4
 schedule = 'constant'
 warmup = 0
 max_iters = 0
+decay_start = 0
 
 bert_name = 'bert-base-uncased'
 hidden_dropout_prob = 0.3

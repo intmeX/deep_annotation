@@ -136,6 +136,8 @@ def training(model, dataloader, optimizer, scheduler, criterion, thr=threshold):
     global max_length
     global writer
     global last_epoch
+    global warmup
+    global decay_start
     model.train()
     epoch_loss = 0
     epoch_acc_prec = 0
@@ -156,7 +158,8 @@ def training(model, dataloader, optimizer, scheduler, criterion, thr=threshold):
 
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        if batch_num + i < warmup or batch_num + i > decay_start:
+            scheduler.step()
 
         (
             # train_acc,
@@ -245,6 +248,8 @@ def main():
     global last_epoch
     global device
     global end
+    global warmup
+    global decay_start
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
@@ -254,6 +259,7 @@ def main():
     train_iters = len(train_loader) * epoch
     if max_iters > 0:
         train_iters = max_iters
+    train_iters += warmup - decay_start
     scheduler = None
     if schedule == 'linear':
         scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=train_iters)

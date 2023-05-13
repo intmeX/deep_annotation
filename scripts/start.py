@@ -25,6 +25,7 @@ def main():
     parser.add_argument('-sc', '--schedule', required=False)
     parser.add_argument('-w', '--warmup', type=int, required=False)
     parser.add_argument('-mi', '--max_iters', type=int, required=False)
+    parser.add_argument('-ds', '--decay_start', type=int, required=False)
 
     parser.add_argument('-p', '--predict', default=False, action='store_true', required=False)
 
@@ -62,6 +63,8 @@ def main():
         cfg.warmup = args.warmup
     if args.max_iters:
         cfg.max_iters = args.max_iters
+    if args.decay_start:
+        cfg.decay_start = args.decay_start
 
     if args.predict:
         if args.model_path is None:
