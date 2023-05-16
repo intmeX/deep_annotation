@@ -16,12 +16,6 @@ from configs.config import *
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-# 定义分词器
-tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
-embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
-# embedding = torch.load(config.model_data_path + 'GoogleNews-vectors-negative300.model').to(device)
-
-
 # 自定义Dataset子类
 class CpcText(Dataset):
     def __init__(self, data):
@@ -40,11 +34,15 @@ class CpcText(Dataset):
 
 def data_trans(data):
     global max_length
-    global tokenizer
-    global embedding
     global vec_dim
     global num_classes
     global device
+
+    # 定义分词器
+    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
+    embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
+    # embedding = torch.load(config.model_data_path + 'GoogleNews-vectors-negative300.model').to(device)
+
     pad = np.random.normal(loc=0, scale=1, size=(vec_dim,))
     res = dict()
     # stmt 是题目数据文件中的feature
@@ -108,7 +106,6 @@ def data_prepare():
 
 
 def training(model, dataloader, optimizer, criterion, thr=0.8):
-    global tokenizer
     global num_classes
     global device
     model.train()
@@ -144,7 +141,6 @@ def training(model, dataloader, optimizer, criterion, thr=0.8):
 
 
 def evaluting(model, dataloader, criterion, thr=0.7):
-    global tokenizer
     global num_classes
     global device
     model.eval()

@@ -10,6 +10,7 @@ from transformers import BertForSequenceClassification, \
                         get_linear_schedule_with_warmup, \
                         get_constant_schedule_with_warmup
 from torch.nn import BCEWithLogitsLoss
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn import metrics
@@ -18,17 +19,7 @@ from configs.config import *
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-end = model_path
-if model_path == '_':
-    end = time.strftime("%Y%m%d%H%M%S", time.localtime()) + '_bert.model'
-if os.path.exists(metrics_path + end):
-    os.mkdir(metrics_path + end)
-writer = SummaryWriter(metrics_path + end)
 last_epoch = 0
-
-
-# 定义分词器
-tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
 
 
 # 自定义Dataset子类
@@ -107,12 +98,10 @@ def metric_calc(tag, pred):
     )
 
 
-def training(model, dataloader, optimizer, scheduler, criterion, thr=threshold):
-    global tokenizer
+def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writer, thr=threshold):
     global num_classes
     global device
     global max_length
-    global writer
     global last_epoch
     global warmup
     global decay_start
@@ -184,12 +173,10 @@ def training(model, dataloader, optimizer, scheduler, criterion, thr=threshold):
     return epoch_loss / len(dataloader), epoch_acc_prec / len(dataloader), epoch_acc_recall / len(dataloader), epoch_acc_haming / len(dataloader)
 
 
-def evaluting(model, dataloader, criterion, thr=threshold):
-    global tokenizer
+def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
     global num_classes
     global device
     global last_epoch
-    global writer
     model.eval()
     epoch_loss = 0
     epoch_acc_prec = 0
@@ -251,11 +238,20 @@ def evaluting(model, dataloader, criterion, thr=threshold):
 
 def main():
     global last_epoch
-    global tokenizer
     global device
     global end
     global warmup
     global decay_start
+    end = model_path
+    if model_path == '_':
+        end = time.strftime("%Y%m%d%H%M%S", time.localtime()) + '_bert.model'
+    if os.path.exists(metrics_path + end):
+        os.mkdir(metrics_path + end)
+    writer = SummaryWriter(metrics_path + end)
+
+    # 定义分词器
+    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
+
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
@@ -289,6 +285,10 @@ def main():
         scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=train_iters)
     elif schedule == 'constant':
         scheduler = get_constant_schedule_with_warmup(optimizer, num_warmup_steps=warmup)
+    elif schedule == 'exp':
+        scheduler = ExponentialLR(optimizer, gamma=0.9998)
+    else:
+        raise Exception('No such scheduler: {}'.format(schedule))
     loss_func = BCEWithLogitsLoss()
 
     times = []
@@ -297,9 +297,9 @@ def main():
         torch.cuda.synchronize()
         start = time.time()
         # try:
-        train_loss, train_acc_prec, train_acc_recall, train_acc_haming = training(model, train_loader, optimizer, scheduler, loss_func)
+        train_loss, train_acc_prec, train_acc_recall, train_acc_haming = training(model, train_loader, optimizer, scheduler, loss_func, tokenizer, writer)
         print("\ntraining epoch {:<1} loss: {}\tacc_prec: {}\tacc_recall: {}\tacc_haming: {}\n".format(i + 1, train_loss, train_acc_prec, train_acc_recall, train_acc_haming))
-        eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming = evaluting(model, validate_loader, loss_func)
+        eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming = evaluting(model, validate_loader, loss_func, tokenizer, writer)
         print("\nevaluting epoch {:<1} loss: {}\tacc_prec: {}\tacc_recall: {}\tacc_haming: {}\n".format(i + 1, eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming))
         # except:
         #     torch.save(model, configs.model_data_path + 'cpc_lstm.model')
