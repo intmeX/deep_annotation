@@ -7,7 +7,7 @@ import random
 from transformers import BertTokenizerFast
 from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from transformers import get_cosine_schedule_with_warmup, \
                         get_linear_schedule_with_warmup, \
                         get_constant_schedule_with_warmup
@@ -40,16 +40,11 @@ class CpcText(Dataset):
         return sample
 
 
-def data_trans(data):
+def data_trans(data, tokenizer, embedding):
     global max_length
     global vec_dim
     global num_classes
     global device
-
-    # 定义分词器
-    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
-    embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
-
     pad = np.random.normal(loc=0, scale=1, size=(vec_dim,))
     res = dict()
     res[feature] = tokenizer.tokenize(data[feature])
@@ -100,9 +95,14 @@ def data_prepare():
     global data_path
     global batch_size
     data_raw = get_data(data_path)
+
+    # 定义分词器
+    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
+    embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
+
     data = []
     for i in data_raw:
-        data.append(data_trans(i))
+        data.append(data_trans(i, tokenizer, embedding))
     random.seed(1)
     random.shuffle(data)
     data_train, data_validate = data[: int(len(data) * 0.8)], data[int(len(data) * 0.8):]
@@ -249,9 +249,11 @@ def main():
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
-    model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
+    # model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
+    model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, init_weights=False).to(device)
     # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
-    optimizer = AdamW(model.parameters(), lr=learning_rate)
+    optimizer = Adam(lr=5e-6, eps=1e-8)
+    # optimizer = AdamW(model.parameters(), lr=learning_rate)
     train_iters = len(train_loader) * epoch
     if max_iters > 0:
         train_iters = max_iters
