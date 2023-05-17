@@ -1,6 +1,7 @@
 import pandas as pd
 from scripts import XML
 from scripts import config
+from transformers import BertTokenizerFast
 
 
 def pack_tag():
@@ -39,5 +40,19 @@ def pack_tag():
     pass
 
 
+def tag_sta():
+    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
+    problem = XML.read_xml(config.base_path + 'problems_with_tag50.xml')['problem']
+    total = 0
+    total_token = 0
+    for i in problem:
+        tokens = tokenizer.tokenize(str(i['desc']))
+        total_token += len(tokens)
+        total += len(str(i['tag'])) // 2 + 1
+    print('tag mean: {}'.format(total / 6841))
+    print('token mean: {}'.format(total_token / 6841))
+
+
 if __name__ == '__main__':
-    pack_tag()
+    # pack_tag()
+    tag_sta()

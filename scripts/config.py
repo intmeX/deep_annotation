@@ -1,6 +1,7 @@
 problem_list_path = '../data/base/problem_lists/'
 base_path = '../data/base/'
 AAPD_path = '../data/AAPD/'
+AGNews_path = '../data/AGNews/'
 reuters_path = '../data/reuters21578/'
 model_path = '../data/models/'
 oj_name = [
