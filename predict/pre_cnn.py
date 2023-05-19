@@ -3,7 +3,7 @@ import time
 import torch
 import random
 from transformers import BertTokenizerFast
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 from gensim.models import KeyedVectors
@@ -93,7 +93,7 @@ def data_prepare():
     return train_loader, validate_loader
 
 
-def training(model, dataloader, optimizer, criterion, thr=0.8):
+def training(model, dataloader, optimizer, criterion, thr=0):
     global tokenizer
     global num_classes
     global device
@@ -130,7 +130,7 @@ def training(model, dataloader, optimizer, criterion, thr=0.8):
     return epoch_loss / len(dataloader), epoch_acc_tp / len(dataloader), epoch_acc_tr / len(dataloader)
 
 
-def evaluting(model, dataloader, criterion, thr=0.7):
+def evaluting(model, dataloader, criterion, thr=0):
     global tokenizer
     global num_classes
     global device
@@ -171,7 +171,8 @@ def main():
     # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
     # 参考博客 一是去掉无用的设置 而是构造字典列表以使AdamW可以接受该参数
     optimizer = AdamW(model.parameters(), lr=1e-4)
-    loss_func = CrossEntropyLoss()
+    # loss_func = CrossEntropyLoss()
+    loss_func = BCEWithLogitsLoss()
 
     times = []
     model_path = './model/'

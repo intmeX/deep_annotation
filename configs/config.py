@@ -18,6 +18,7 @@ batch_size = 20
 num_classes = 50
 learning_rate = 1e-4
 schedule = 'constant'
+exp_gamma = 0.9999
 warmup = 0
 max_iters = 0
 decay_start = 0
@@ -26,9 +27,13 @@ bert_name = 'bert-base-uncased'
 hidden_dropout_prob = 0.3
 weight_decay = 0.01
 
-conv_sizes = [2, 3, 4]
+conv_sizes = [2, 3, 4, 5]
 
 vocab_len = 3000000
 vec_dim = 300
-hidden_dim = 20
+# hidden_dim = 20
+num_kernel = 100
+cnn_dropout = 0.15
 num_layers = 3
+
+single_label = False

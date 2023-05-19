@@ -3,7 +3,7 @@ from torch import nn
 
 
 class cpcCNN(nn.Module):
-    def __init__(self, embedding, vocab_len, vec_dim, hidden_dim, max_length=200, num_classes=10, conv_sizes=None, dropout=0.5, init_weights=True):
+    def __init__(self, embedding, vocab_len, vec_dim, num_kernel, max_length=200, num_classes=10, conv_sizes=None, dropout=0.5, init_weights=True):
         super(cpcCNN, self).__init__()
         '''
         '''
@@ -13,14 +13,14 @@ class cpcCNN(nn.Module):
             self.conv_sizes = conv_sizes
         self.vec_dim = vec_dim
         self.vocab_len = vocab_len
-        self.hidden_dim = hidden_dim
+        self.num_kernel = num_kernel
         self.num_classes = num_classes
         self.dropout = dropout
         self.embedding = embedding
         self.max_length = max_length
         self.conv1Ds = nn.ModuleList([
             nn.Sequential(
-                nn.Conv1d(self.vec_dim, self.hidden_dim, kernel_size=s),
+                nn.Conv1d(self.vec_dim, self.num_kernel, kernel_size=s),
                 nn.ReLU(),
                 nn.MaxPool1d(kernel_size=self.max_length - s + 1),
             )
@@ -28,8 +28,9 @@ class cpcCNN(nn.Module):
         ])
         self.classifier = torch.nn.Sequential(
             torch.nn.Dropout(dropout),
-            torch.nn.Linear(hidden_dim * len(conv_sizes), num_classes),
-            torch.nn.Sigmoid(),
+            torch.nn.Linear(self.num_kernel * len(conv_sizes), num_classes),
+            # 如果train内loss已经附带了Sigmoid，则不需要重复添加
+            # torch.nn.Sigmoid(),
         )
         if init_weights:
             self._initialize_weights()

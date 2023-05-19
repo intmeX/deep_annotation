@@ -46,9 +46,10 @@ def tag_sta():
     total = 0
     total_token = 0
     for i in problem:
-        tokens = tokenizer.tokenize(str(i['desc']))
+        tokens = tokenizer.tokenize(str(i['stmt']))
         total_token += len(tokens)
         total += len(str(i['tag'])) // 2 + 1
+        print("get doc {}".format(i['ID']))
     print('tag mean: {}'.format(total / 6841))
     print('token mean: {}'.format(total_token / 6841))
 

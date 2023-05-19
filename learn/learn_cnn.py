@@ -5,7 +5,7 @@ import time
 import torch
 import random
 from transformers import BertTokenizerFast
-from torch.nn import BCEWithLogitsLoss
+from torch.nn import BCELoss, CrossEntropyLoss, BCEWithLogitsLoss
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW, Adam
 from transformers import get_cosine_schedule_with_warmup, \
@@ -62,7 +62,7 @@ def data_trans(data, tokenizer, embedding):
     if length < max_length:
         res[feature] += [pad] * (max_length - length)
     res[feature] = torch.tensor(np.array(res[feature]), dtype=torch.float32)
-    tag = [int(j) for j in data[label].split(',')]
+    tag = [int(j) for j in str(data[label]).split(',')]
     oh = [0] * num_classes
     for j in tag:
         oh[j] = 1
@@ -250,9 +250,9 @@ def main():
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
     # model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
-    model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, init_weights=False).to(device)
+    model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, num_kernel=num_kernel, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, dropout=cnn_dropout).to(device)
     # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
-    optimizer = Adam(lr=5e-6, eps=1e-8)
+    optimizer = Adam(model.parameters(), lr=learning_rate, eps=1e-8)
     # optimizer = AdamW(model.parameters(), lr=learning_rate)
     train_iters = len(train_loader) * epoch
     if max_iters > 0:
@@ -266,10 +266,13 @@ def main():
     elif schedule == 'constant':
         scheduler = get_constant_schedule_with_warmup(optimizer, num_warmup_steps=warmup)
     elif schedule == 'exp':
-        scheduler = ExponentialLR(optimizer, gamma=0.9998)
+        scheduler = ExponentialLR(optimizer, gamma=exp_gamma)
     else:
         raise Exception('No such scheduler: {}'.format(schedule))
+    # loss_func = BCELoss()
     loss_func = BCEWithLogitsLoss()
+    if single_label:
+        loss_func = CrossEntropyLoss()
 
     times = []
 

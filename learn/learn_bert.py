@@ -9,7 +9,7 @@ from transformers import BertForSequenceClassification, \
                         get_cosine_schedule_with_warmup, \
                         get_linear_schedule_with_warmup, \
                         get_constant_schedule_with_warmup
-from torch.nn import BCEWithLogitsLoss
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -44,7 +44,7 @@ def data_trans(data):
     global device
     res = dict()
     res[feature] = data[feature]
-    tag = [int(j) for j in data[label].split(',')]
+    tag = [int(j) for j in str(data[label]).split(',')]
     oh = [0] * num_classes
     for j in tag:
         oh[j] = 1
@@ -110,6 +110,7 @@ def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writ
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     for i, batch in enumerate(dataloader):
         desc = batch[feature]
@@ -152,6 +153,12 @@ def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writ
         epoch_acc_prec += train_prec
         epoch_acc_recall += train_recall
         epoch_acc_haming += train_haming
+        train_acc = 0
+        if single_label:
+            p = torch.argmax(prob, dim=1)
+            t = torch.argmax(tag, dim=1)
+            train_acc = ((p == t).sum()).item()
+            epoch_acc += train_acc
 
         if i % 20 == 19:
             lr = scheduler.get_lr()[0]
@@ -161,6 +168,9 @@ def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writ
             writer.add_scalar("hamming/train", train_haming, batch_num + i)
             writer.add_scalar("micro_f1/train", train_micro_f1, batch_num + i)
             writer.add_scalar("learning_rate", lr, batch_num + i)
+            if single_label:
+                writer.add_scalar("acc/train", train_acc / batch_size, batch_num + i)
+                print('avg_train_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
 
             print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}\tlr: {}".format(
                 i,
@@ -177,11 +187,13 @@ def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
     global num_classes
     global device
     global last_epoch
+    global single_label
     model.eval()
     epoch_loss = 0
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
@@ -219,6 +231,12 @@ def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
             epoch_acc_prec += val_prec
             epoch_acc_recall += val_recall
             epoch_acc_haming += val_haming
+            val_acc = 0
+            if single_label:
+                p = torch.argmax(prob, dim=1)
+                t = torch.argmax(tag, dim=1)
+                val_acc = ((p == t).sum()).item()
+                epoch_acc += val_acc
 
             if i % 20 == 19:
                 writer.add_scalar('loss/val', loss.item(), batch_num + i)
@@ -226,6 +244,10 @@ def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
                 writer.add_scalar("recall/val", val_recall, batch_num + i)
                 writer.add_scalar("hamming/val", val_haming, batch_num + i)
                 writer.add_scalar("micro_f1/val", val_micro_f1, batch_num + i)
+                if single_label:
+                    writer.add_scalar("acc/val", val_acc / batch_size, batch_num + i)
+                    print('avg_val_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
+
                 print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}".format(
                     i,
                     epoch_loss / (i + 1),
@@ -286,10 +308,12 @@ def main():
     elif schedule == 'constant':
         scheduler = get_constant_schedule_with_warmup(optimizer, num_warmup_steps=warmup)
     elif schedule == 'exp':
-        scheduler = ExponentialLR(optimizer, gamma=0.9998)
+        scheduler = ExponentialLR(optimizer, gamma=exp_gamma)
     else:
         raise Exception('No such scheduler: {}'.format(schedule))
     loss_func = BCEWithLogitsLoss()
+    if single_label:
+        loss_func = CrossEntropyLoss()
 
     times = []
 

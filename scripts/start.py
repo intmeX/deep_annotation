@@ -20,12 +20,21 @@ def main():
     parser.add_argument('-mp', '--model_path', required=False)
 
     parser.add_argument('-t', '--threshold', type=float, required=False)
+    parser.add_argument('-b', '--batch_size', type=int, required=False)
     parser.add_argument('-lr', '--learning_rate', type=float, required=False)
     parser.add_argument('-e', '--epoch', type=int, required=False)
     parser.add_argument('-sc', '--schedule', required=False)
+    parser.add_argument('-eg', '--exp_gamma', type=float, required=False)
     parser.add_argument('-w', '--warmup', type=int, required=False)
     parser.add_argument('-mi', '--max_iters', type=int, required=False)
     parser.add_argument('-ds', '--decay_start', type=int, required=False)
+
+    parser.add_argument('-bn', '--bert_name', required=False)
+
+    parser.add_argument('--num_kernel', type=int, required=False)
+    parser.add_argument('--cnn_dropout', type=float, required=False)
+
+    parser.add_argument('-sl', '--single_label', default=False, action='store_true', required=False)
 
     parser.add_argument('-p', '--predict', default=False, action='store_true', required=False)
 
@@ -51,7 +60,9 @@ def main():
     if args.model_path:
         cfg.model_path = args.model_path
 
-    if args.threshold:
+    if args.batch_size:
+        cfg.batch_size = args.batch_size
+    if not (args.threshold is None):
         cfg.threshold = args.threshold
     if args.learning_rate:
         cfg.learning_rate = args.learning_rate
@@ -59,12 +70,25 @@ def main():
         cfg.epoch = args.epoch
     if args.schedule:
         cfg.schedule = args.schedule
+    if args.exp_gamma:
+        cfg.exp_gamma = args.exp_gamma
     if args.warmup:
         cfg.warmup = args.warmup
     if args.max_iters:
         cfg.max_iters = args.max_iters
     if args.decay_start:
         cfg.decay_start = args.decay_start
+
+    if args.bert_name:
+        cfg.bert_name = args.bert_name
+
+    if args.num_kernel:
+        cfg.num_kernel = args.num_kernel
+    if args.cnn_dropout:
+        cfg.cnn_dropout = args.cnn_dropout
+
+    if args.single_label:
+        cfg.single_label = True
 
     if args.predict:
         if args.model_path is None:
