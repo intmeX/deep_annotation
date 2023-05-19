@@ -2,9 +2,9 @@ import torch
 from torch import nn
 
 
-class cpcCNN(nn.Module):
+class TextCNN(nn.Module):
     def __init__(self, embedding, vocab_len, vec_dim, num_kernel, max_length=200, num_classes=10, conv_sizes=None, dropout=0.5, init_weights=True):
-        super(cpcCNN, self).__init__()
+        super(TextCNN, self).__init__()
         '''
         '''
         if conv_sizes is None:

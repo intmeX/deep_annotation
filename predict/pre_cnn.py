@@ -9,7 +9,7 @@ from torch.optim import AdamW
 from gensim.models import KeyedVectors
 from scripts import XML
 from learn import config
-from model import cpc_cnn
+from model import text_cnn
 
 
 data_path = '../data/base/problems_with_tag50.xml'
@@ -167,7 +167,7 @@ def main():
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
-    model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
+    model = text_cnn.TextCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
     # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
     # 参考博客 一是去掉无用的设置 而是构造字典列表以使AdamW可以接受该参数
     optimizer = AdamW(model.parameters(), lr=1e-4)
