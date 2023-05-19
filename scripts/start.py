@@ -100,6 +100,8 @@ def main():
             from predict import pre_cnn as pre
         elif cfg.model_name == 'bert':
             from predict import pre_bert as pre
+        elif cfg.model_name == 'bert2cnn':
+            from predict import pre_bert2cnn as pre
         else:
             raise Exception('No such model: {}'.format(cfg.model_name))
         pre.main()
@@ -112,6 +114,8 @@ def main():
             from learn import learn_cnn as learning
         elif cfg.model_name == 'bert':
             from learn import learn_bert as learning
+        elif cfg.model_name == 'bert2cnn':
+            from learn import learn_bert2cnn as learning
         else:
             raise Exception('No such model: {}'.format(cfg.model_name))
         learning.main()
@@ -119,3 +123,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

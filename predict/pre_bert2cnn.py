@@ -4,20 +4,18 @@ import pandas as pd
 import time
 import torch
 import random
-from transformers import BertTokenizerFast
-from torch.nn import BCELoss, CrossEntropyLoss, BCEWithLogitsLoss
-from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW, Adam
-from transformers import get_cosine_schedule_with_warmup, \
+from transformers import BertTokenizerFast, BertConfig, AdamW, \
+                        get_cosine_schedule_with_warmup, \
                         get_linear_schedule_with_warmup, \
                         get_constant_schedule_with_warmup
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from torch.optim.lr_scheduler import ExponentialLR
+from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn import metrics
-from gensim.models import KeyedVectors
 from scripts import XML
+from model import text_cnn, bert2cnn
 from configs.config import *
-from model import text_cnn
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -40,28 +38,12 @@ class CpcText(Dataset):
         return sample
 
 
-def data_trans(data, tokenizer, embedding):
+def data_trans(data):
     global max_length
-    global vec_dim
     global num_classes
     global device
-    pad = np.random.normal(loc=0, scale=1, size=(vec_dim,))
     res = dict()
-    res[feature] = tokenizer.tokenize(data[feature])
-    length = len(res[feature])
-    if length > max_length:
-        res[feature] = res[feature][:max_length]
-        length = max_length
-    i = 0
-    while i < length:
-        try:
-            res[feature][i] = embedding[res[feature][i]]
-        except:
-            res[feature][i] = pad
-        i += 1
-    if length < max_length:
-        res[feature] += [pad] * (max_length - length)
-    res[feature] = torch.tensor(np.array(res[feature]), dtype=torch.float32)
+    res[feature] = data[feature]
     tag = [int(j) for j in str(data[label]).split(',')]
     oh = [0] * num_classes
     for j in tag:
@@ -95,14 +77,9 @@ def data_prepare():
     global data_path
     global batch_size
     data_raw = get_data(data_path)
-
-    # 定义分词器
-    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path='bert-base-uncased')
-    embedding = KeyedVectors.load_word2vec_format(model_data_path + 'GoogleNews-vectors-negative300.bin', binary=True)
-
     data = []
     for i in data_raw:
-        data.append(data_trans(i, tokenizer, embedding))
+        data.append(data_trans(i))
     random.seed(1)
     random.shuffle(data)
     data_train, data_validate = data[: int(len(data) * 0.8)], data[int(len(data) * 0.8):]
@@ -121,7 +98,7 @@ def metric_calc(tag, pred):
     )
 
 
-def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=threshold):
+def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writer, thr=threshold):
     global num_classes
     global device
     global max_length
@@ -133,14 +110,28 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     for i, batch in enumerate(dataloader):
-        desc = batch[feature].to(device)
+        desc = batch[feature]
         tag = batch[label].to(device)
+
+        tokenizer_res = tokenizer(
+            desc,
+            max_length=max_length,
+            add_special_tokens=True,
+            truncation=True,
+            padding=True,
+            return_token_type_ids=True,
+            return_attention_mask=True,
+            verbose=True,
+            return_tensors="pt")
+        tokenizer_res = tokenizer_res.to(device)
 
         optimizer.zero_grad()
 
-        prob = model(desc)
+        output = model(**tokenizer_res, labels=tag)
+        prob = output[1]
 
         loss = criterion(prob.view(-1, num_classes), tag)
 
@@ -162,6 +153,12 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
         epoch_acc_prec += train_prec
         epoch_acc_recall += train_recall
         epoch_acc_haming += train_haming
+        train_acc = 0
+        if single_label:
+            p = torch.argmax(prob, dim=1)
+            t = torch.argmax(tag, dim=1)
+            train_acc = ((p == t).sum()).item()
+            epoch_acc += train_acc
 
         if i % 20 == 19:
             lr = scheduler.get_lr()[0]
@@ -171,6 +168,9 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
             writer.add_scalar("hamming/train", train_haming, batch_num + i)
             writer.add_scalar("micro_f1/train", train_micro_f1, batch_num + i)
             writer.add_scalar("learning_rate", lr, batch_num + i)
+            if single_label:
+                writer.add_scalar("acc/train", train_acc / batch_size, batch_num + i)
+                print('avg_train_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
 
             print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}\tlr: {}".format(
                 i,
@@ -179,26 +179,42 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
                 epoch_acc_recall / (i + 1),
                 epoch_acc_haming / (i + 1),
                 scheduler.get_lr()[0],
-                ))
+            ))
     return epoch_loss / len(dataloader), epoch_acc_prec / len(dataloader), epoch_acc_recall / len(dataloader), epoch_acc_haming / len(dataloader)
 
 
-def evaluting(model, dataloader, criterion, writer, thr=threshold):
+def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
     global num_classes
     global device
     global last_epoch
+    global single_label
     model.eval()
     epoch_loss = 0
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-            desc = batch[feature].to(device)
+            desc = batch[feature]
+            # label = torch.tensor(batch[label], dtype=torch.long).to(device)
             tag = batch[label].to(device)
 
-            prob = model(desc)
+            tokenizer_res = tokenizer(
+                desc,
+                max_length=max_length,
+                add_special_tokens=True,
+                truncation=True,
+                padding=True,
+                return_token_type_ids=True,
+                return_attention_mask=True,
+                verbose=True,
+                return_tensors="pt")
+            tokenizer_res = tokenizer_res.to(device)
+
+            output = model(**tokenizer_res, labels=tag)
+            prob = output[1]
 
             pred = prob > thr
 
@@ -215,6 +231,12 @@ def evaluting(model, dataloader, criterion, writer, thr=threshold):
             epoch_acc_prec += val_prec
             epoch_acc_recall += val_recall
             epoch_acc_haming += val_haming
+            val_acc = 0
+            if single_label:
+                p = torch.argmax(prob, dim=1)
+                t = torch.argmax(tag, dim=1)
+                val_acc = ((p == t).sum()).item()
+                epoch_acc += val_acc
 
             if i % 20 == 19:
                 writer.add_scalar('loss/val', loss.item(), batch_num + i)
@@ -222,13 +244,17 @@ def evaluting(model, dataloader, criterion, writer, thr=threshold):
                 writer.add_scalar("recall/val", val_recall, batch_num + i)
                 writer.add_scalar("hamming/val", val_haming, batch_num + i)
                 writer.add_scalar("micro_f1/val", val_micro_f1, batch_num + i)
+                if single_label:
+                    writer.add_scalar("acc/val", val_acc / batch_size, batch_num + i)
+                    print('avg_val_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
+
                 print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}".format(
                     i,
                     epoch_loss / (i + 1),
                     epoch_acc_prec / (i + 1),
                     epoch_acc_recall / (i + 1),
                     epoch_acc_haming / (i + 1),
-                    ))
+                ))
     return epoch_loss / len(dataloader), epoch_acc_prec / len(dataloader), epoch_acc_recall / len(dataloader), epoch_acc_haming / len(dataloader)
 
 
@@ -238,22 +264,36 @@ def main():
     global end
     global warmup
     global decay_start
-
     end = model_path
     if model_path == '_':
-        end = time.strftime("%Y%m%d%H%M%S", time.localtime()) + '_cnn.model'
+        end = time.strftime("%Y%m%d%H%M%S", time.localtime()) + '_bert2cnn.model'
     if os.path.exists(metrics_path + end):
         os.mkdir(metrics_path + end)
     writer = SummaryWriter(metrics_path + end)
 
+    # 定义分词器
+    tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path=bert_name)
+
     train_loader, validate_loader = data_prepare()
     print(train_loader.dataset[2])
     print(validate_loader.dataset[2])
-    # model = cpc_cnn.cpcCNN(None, vocab_len, vec_dim, hidden_dim, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes).to(device)
-    model = text_cnn.TextCNN(None, vocab_len, vec_dim=vec_dim, num_kernel=num_kernel, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, dropout=cnn_dropout).to(device)
-    # optimizer = Adam(lr=1e-4, eps=1e-8, weight_decay=0.01)
-    optimizer = Adam(model.parameters(), lr=learning_rate, eps=1e-8)
-    # optimizer = AdamW(model.parameters(), lr=learning_rate)
+    # BERT参数设置
+    bert_config = BertConfig.from_pretrained(bert_name)
+    bert_config.output_hidden_states = False
+    bert_config.num_labels = num_classes
+    bert_config.hidden_dropout_prob = hidden_dropout_prob
+    # 模型加载
+    cnn = text_cnn.TextCNN(None, vocab_len, vec_dim, num_kernel=num_kernel, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, dropout=cnn_dropout).to(device)
+    model = bert2cnn.BERT2CNN(bert_name, bert_config, cnn).to(device)
+    # 一是去掉无用的设置 而是构造字典列表以使AdamW可以接受该参数
+    no_decay = ['bias', 'LayerNorm.weight']
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+         'weight_decay': weight_decay},
+        {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
+    optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
+    # 从decay_start开始衰减
     train_iters = len(train_loader) * epoch
     if max_iters > 0:
         train_iters = max_iters
@@ -269,7 +309,6 @@ def main():
         scheduler = ExponentialLR(optimizer, gamma=exp_gamma)
     else:
         raise Exception('No such scheduler: {}'.format(schedule))
-    # loss_func = BCELoss()
     loss_func = BCEWithLogitsLoss()
     if single_label:
         loss_func = CrossEntropyLoss()
@@ -280,9 +319,9 @@ def main():
         torch.cuda.synchronize()
         start = time.time()
         # try:
-        train_loss, train_acc_prec, train_acc_recall, train_acc_haming = training(model, train_loader, optimizer, scheduler, loss_func, writer)
+        train_loss, train_acc_prec, train_acc_recall, train_acc_haming = training(model, train_loader, optimizer, scheduler, loss_func, tokenizer, writer)
         print("\ntraining epoch {:<1} loss: {}\tacc_prec: {}\tacc_recall: {}\tacc_haming: {}\n".format(i + 1, train_loss, train_acc_prec, train_acc_recall, train_acc_haming))
-        eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming = evaluting(model, validate_loader, loss_func, writer)
+        eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming = evaluting(model, validate_loader, loss_func, tokenizer, writer)
         print("\nevaluting epoch {:<1} loss: {}\tacc_prec: {}\tacc_recall: {}\tacc_haming: {}\n".format(i + 1, eval_loss, eval_acc_prec, eval_acc_recall, eval_acc_haming))
         # except:
         #     torch.save(model, configs.model_data_path + 'cpc_lstm.model')

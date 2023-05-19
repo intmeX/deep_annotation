@@ -130,8 +130,7 @@ def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writ
 
         optimizer.zero_grad()
 
-        output = model(**tokenizer_res, labels=tag)
-        prob = output[1]
+        prob = model(**tokenizer_res)
 
         loss = criterion(prob.view(-1, num_classes), tag)
 
@@ -213,8 +212,7 @@ def evaluting(model, dataloader, criterion, tokenizer, writer, thr=threshold):
                 return_tensors="pt")
             tokenizer_res = tokenizer_res.to(device)
 
-            output = model(**tokenizer_res, labels=tag)
-            prob = output[1]
+            prob = model(**tokenizer_res)
 
             pred = prob > thr
 
@@ -283,7 +281,7 @@ def main():
     bert_config.num_labels = num_classes
     bert_config.hidden_dropout_prob = hidden_dropout_prob
     # 模型加载
-    cnn = text_cnn.TextCNN(None, vocab_len, vec_dim, num_kernel=num_kernel, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, dropout=cnn_dropout).to(device)
+    cnn = text_cnn.TextCNN(None, vocab_len, vec_dim=768, num_kernel=num_kernel, max_length=max_length, num_classes=num_classes, conv_sizes=conv_sizes, dropout=cnn_dropout).to(device)
     model = bert2cnn.BERT2CNN(bert_name, bert_config, cnn).to(device)
     # 一是去掉无用的设置 而是构造字典列表以使AdamW可以接受该参数
     no_decay = ['bias', 'LayerNorm.weight']

@@ -11,8 +11,8 @@ class BERT2CNN(nn.Module):
         self.bert = BertModel.from_pretrained(pretrained_model_name_or_path=self.bert_name, config=self.bert_config)
         self.cnn = cnn
 
-    def forward(self, x):
-        _, x = self.bert(x)
+    def forward(self, **kwargs):
+        x = self.bert(**kwargs)[0]
         x = self.cnn(x)
         return x
 
