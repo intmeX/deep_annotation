@@ -121,7 +121,7 @@ def training(model, dataloader, optimizer, scheduler, criterion, tokenizer, writ
             max_length=max_length,
             add_special_tokens=True,
             truncation=True,
-            padding=True,
+            padding='max_length',
             return_token_type_ids=True,
             return_attention_mask=True,
             verbose=True,
