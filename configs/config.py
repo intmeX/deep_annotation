@@ -11,7 +11,7 @@ label = 'tag'
 
 model_name = 'lstm'
 model_path = 'cpc_lstm.model'
-threshold = 0.5
+threshold = 0
 max_length = 200
 epoch = 100
 batch_size = 20

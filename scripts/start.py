@@ -94,6 +94,7 @@ def main():
         if args.model_path is None:
             print('no model path in this predict task\n')
             return
+        cfg.epoch = 1
         if cfg.model_name == 'lstm':
             from predict import pre_lstm as pre
         elif cfg.model_name == 'cnn':

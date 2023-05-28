@@ -329,9 +329,11 @@ def main():
         torch.cuda.synchronize()
         times.append(time.time() - start)
 
+    print("\ntimecost:", times, "\n")
     if last_epoch == epoch:
         torch.save(model, model_data_path + end)
-    print("\ntimecost:", times, "\n")
+        print('\n\nsave the model in binary file: {}'.format(model_data_path + end))
+        print('the event file is saved in {}'.format(metrics_path + end))
 
 
 if __name__ == '__main__':

@@ -133,6 +133,7 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     for i, batch in enumerate(dataloader):
         desc = batch[feature].to(device)
@@ -162,6 +163,12 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
         epoch_acc_prec += train_prec
         epoch_acc_recall += train_recall
         epoch_acc_haming += train_haming
+        train_acc = 0
+        if single_label:
+            p = torch.argmax(prob, dim=1)
+            t = torch.argmax(tag, dim=1)
+            train_acc = ((p == t).sum()).item()
+            epoch_acc += train_acc
 
         if i % 20 == 19:
             lr = scheduler.get_lr()[0]
@@ -171,6 +178,9 @@ def training(model, dataloader, optimizer, scheduler, criterion, writer, thr=thr
             writer.add_scalar("hamming/train", train_haming, batch_num + i)
             writer.add_scalar("micro_f1/train", train_micro_f1, batch_num + i)
             writer.add_scalar("learning_rate", lr, batch_num + i)
+            if single_label:
+                writer.add_scalar("acc/train", train_acc / batch_size, batch_num + i)
+                print('avg_train_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
 
             print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}\tlr: {}".format(
                 i,
@@ -192,6 +202,7 @@ def evaluting(model, dataloader, criterion, writer, thr=threshold):
     epoch_acc_prec = 0
     epoch_acc_recall = 0
     epoch_acc_haming = 0
+    epoch_acc = 0
     batch_num = last_epoch * len(dataloader)
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
@@ -215,6 +226,12 @@ def evaluting(model, dataloader, criterion, writer, thr=threshold):
             epoch_acc_prec += val_prec
             epoch_acc_recall += val_recall
             epoch_acc_haming += val_haming
+            val_acc = 0
+            if single_label:
+                p = torch.argmax(prob, dim=1)
+                t = torch.argmax(tag, dim=1)
+                val_acc = ((p == t).sum()).item()
+                epoch_acc += val_acc
 
             if i % 20 == 19:
                 writer.add_scalar('loss/val', loss.item(), batch_num + i)
@@ -222,6 +239,10 @@ def evaluting(model, dataloader, criterion, writer, thr=threshold):
                 writer.add_scalar("recall/val", val_recall, batch_num + i)
                 writer.add_scalar("hamming/val", val_haming, batch_num + i)
                 writer.add_scalar("micro_f1/val", val_micro_f1, batch_num + i)
+                if single_label:
+                    writer.add_scalar("acc/val", val_acc / batch_size, batch_num + i)
+                    print('avg_val_acc: {}'.format(epoch_acc / (batch_size * (i + 1))))
+
                 print("{:>5} loss: {}\tprec: {}\trecall: {}\thaming: {}".format(
                     i,
                     epoch_loss / (i + 1),
@@ -292,9 +313,11 @@ def main():
         torch.cuda.synchronize()
         times.append(time.time() - start)
 
+    print("\ntimecost:", times, "\n")
     if last_epoch == epoch:
         torch.save(model, model_data_path + end)
-    print("\ntimecost:", times, "\n")
+        print('save the model in binary file: {}'.format(model_data_path + end))
+        print('the event file is saved in {}'.format(metrics_path + end))
 
 
 if __name__ == '__main__':
